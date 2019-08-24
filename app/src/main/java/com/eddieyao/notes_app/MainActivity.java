@@ -3,6 +3,7 @@ package com.eddieyao.notes_app;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.TaskStackBuilder;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -32,6 +33,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URISyntaxException;
+
+import static android.app.Notification.EXTRA_NOTIFICATION_ID;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -180,14 +183,23 @@ public class MainActivity extends AppCompatActivity
 //        builder.setCancelable(true);
 //        AlertDialog alertDialog = builder.create();
 //        alertDialog.show();
+
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_1)
                 .setSmallIcon(R.drawable.ic_priority_high_black_24dp)
                 .setContentTitle("Work Discontinued")
                 .setContentText("Start a break before leaving the app")
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true);
+
         Intent notificationIntent = new Intent(this, MainActivity.class);
         PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT);
         builder.setContentIntent(contentIntent);
+
+        Intent launchIntent = new Intent(this, MainActivity.class);
+        PendingIntent resumeIntent = PendingIntent.getActivity(
+                this, 0, launchIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        builder.addAction(R.drawable.ic_menu_camera, "Launch", resumeIntent);
 
         NotificationManagerCompat manager = NotificationManagerCompat.from(this);
         manager.notify(0, builder.build());
