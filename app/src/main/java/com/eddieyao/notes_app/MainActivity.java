@@ -25,6 +25,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.github.nkzawa.emitter.Emitter;
@@ -77,10 +78,14 @@ public class MainActivity extends AppCompatActivity
         drawer.addDrawerListener(toggle);
         toggle.syncState();
         navigationView.setNavigationItemSelectedListener(this);
-
+        ProgressBar timerProgress = findViewById(R.id.timerProgress);
         new CountDownTimer(90*1000, 10) {
+            int totalTime = 90*1000;
             TextView countdownTimer = findViewById(R.id.countdownTimer);
+            ProgressBar timerProgress = findViewById(R.id.timerProgress);
+
             public void onTick(long millisUntilFinished) {
+                timerProgress.setMax(totalTime);
                 int hours = ((int) millisUntilFinished/1000) / 3600;
                 int secondsLeft = ((int) millisUntilFinished/1000) - hours * 3600;
                 int minutes = secondsLeft / 60;
@@ -98,7 +103,7 @@ public class MainActivity extends AppCompatActivity
                 if (seconds < 10)
                     formattedTime += "0";
                 formattedTime += seconds ;
-
+                timerProgress.setProgress((int) millisUntilFinished);
                 countdownTimer.setText(formattedTime);
             }
 
@@ -135,7 +140,25 @@ public class MainActivity extends AppCompatActivity
                     new CountDownTimer(sessionTime*1000, 1000) {
                         TextView countdownTimer = findViewById(R.id.countdownTimer);
                         public void onTick(long millisUntilFinished) {
-                            countdownTimer.setText("seconds remaining: " + millisUntilFinished / 1000);
+                            int hours = ((int) millisUntilFinished/1000) / 3600;
+                            int secondsLeft = ((int) millisUntilFinished/1000) - hours * 3600;
+                            int minutes = secondsLeft / 60;
+                            int seconds = secondsLeft - minutes * 60;
+
+                            String formattedTime = "";
+                            if (hours < 10)
+                                formattedTime += "0";
+                            formattedTime += hours + ":";
+
+                            if (minutes < 10)
+                                formattedTime += "0";
+                            formattedTime += minutes + ":";
+
+                            if (seconds < 10)
+                                formattedTime += "0";
+                            formattedTime += seconds ;
+
+                            countdownTimer.setText(formattedTime);
                         }
 
                         public void onFinish() {
