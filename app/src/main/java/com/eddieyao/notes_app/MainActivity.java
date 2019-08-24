@@ -5,6 +5,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.TaskStackBuilder;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -15,6 +16,7 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.support.v7.app.AlertDialog;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.support.v4.view.GravityCompat;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -25,8 +27,11 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
@@ -48,7 +53,7 @@ public class MainActivity extends AppCompatActivity
     private Socket mSocket;
     {
         try {
-            mSocket = IO.socket("http://chat.socket.io");
+            mSocket = IO.socket("http://bitbybit-2019.herokuapp.com");
         } catch (URISyntaxException e) {}
     }
 
@@ -78,9 +83,8 @@ public class MainActivity extends AppCompatActivity
         drawer.addDrawerListener(toggle);
         toggle.syncState();
         navigationView.setNavigationItemSelectedListener(this);
-        ProgressBar timerProgress = findViewById(R.id.timerProgress);
-        new CountDownTimer(90*1000, 10) {
-            int totalTime = 90*1000;
+        new CountDownTimer(10*1000, 10) {
+            int totalTime = 10*1000;
             TextView countdownTimer = findViewById(R.id.countdownTimer);
             ProgressBar timerProgress = findViewById(R.id.timerProgress);
 
@@ -108,7 +112,15 @@ public class MainActivity extends AppCompatActivity
             }
 
             public void onFinish() {
-                countdownTimer.setText("Session Ended");
+                timerProgress.setProgress(0);
+                countdownTimer.setText("00:00:00");
+                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("SESSION ENDED");
+                builder.setMessage("SESSION ENDED");
+                builder.setCancelable(true);
+                builder.setNeutralButton("Close", null);
+                AlertDialog alertDialog = builder.create();
+                alertDialog.show();
             }
         }.start();
     }
@@ -139,7 +151,10 @@ public class MainActivity extends AppCompatActivity
                     sessionTime = seconds;
                     new CountDownTimer(sessionTime*1000, 1000) {
                         TextView countdownTimer = findViewById(R.id.countdownTimer);
+                        ProgressBar timerProgress = findViewById(R.id.timerProgress);
+
                         public void onTick(long millisUntilFinished) {
+                            timerProgress.setMax(sessionTime*1000);
                             int hours = ((int) millisUntilFinished/1000) / 3600;
                             int secondsLeft = ((int) millisUntilFinished/1000) - hours * 3600;
                             int minutes = secondsLeft / 60;
@@ -158,11 +173,20 @@ public class MainActivity extends AppCompatActivity
                                 formattedTime += "0";
                             formattedTime += seconds ;
 
+                            timerProgress.setProgress((int) millisUntilFinished);
                             countdownTimer.setText(formattedTime);
                         }
 
                         public void onFinish() {
-                            countdownTimer.setText("Session Ended");
+                            timerProgress.setProgress(0);
+                            countdownTimer.setText("00:00:00");
+                            final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                            builder.setTitle("SESSION ENDED");
+                            builder.setMessage("")
+                                    .setNeutralButton("Close", null);
+                            builder.setCancelable(true);
+                            AlertDialog alertDialog = builder.create();
+                            alertDialog.show();
                         }
                     }.start();
                 }
@@ -170,12 +194,128 @@ public class MainActivity extends AppCompatActivity
         }
     };
 
-    private void sendBreak(View view) {
-        mSocket.emit("new message", "break");
+    public void sendBreak(View view) {
+        AlertDialog.Builder alert = new AlertDialog.Builder(this);
+
+        alert.setTitle("Specify Break Time");
+        alert.setMessage(" ");
+
+        LinearLayout linear=new LinearLayout(this);
+
+        linear.setOrientation(LinearLayout.VERTICAL);
+        final TextView text=new TextView(this);
+        text.setText("    0 minutes");
+        text.setPadding(10, 10, 10, 10);
+
+        SeekBar seek=new SeekBar(this);
+        seek.setMax(60);
+        seek.setProgress(0);
+        seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                text.setText("    " + String.valueOf(new Integer(progress)) + " minutes");
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+
+        linear.addView(seek);
+        linear.addView(text);
+
+        alert.setView(linear);
+
+        alert.setPositiveButton("Ok",new DialogInterface.OnClickListener()
+        {
+            public void onClick(DialogInterface dialog,int id)
+            {
+                if (Integer.parseInt(Character.toString(text.getText().charAt(4))) != 0) {
+                    final int breakLength;
+                    String firstInt;
+                    String secondInt;
+                    if (Character.isDigit(text.getText().charAt(5))) {
+                        firstInt = Character.toString(text.getText().charAt(4));
+                        secondInt = Character.toString(text.getText().charAt(5));
+                        breakLength = Integer.parseInt(firstInt + secondInt);
+                    } else {
+                        firstInt = Character.toString(text.getText().charAt(4));
+                        breakLength = Integer.parseInt(firstInt);
+                    }
+                    Toast.makeText(getApplicationContext(), "Break Started", Toast.LENGTH_LONG).show();
+                    JSONObject obj = new JSONObject();
+                    try {
+                        obj.put("duration", breakLength * 60);
+                    } catch (JSONException e) {
+                        Log.i("break", "unexpected JSON exception", e);
+                    }
+                    mSocket.emit("break", obj);
+
+                    new CountDownTimer(breakLength*60*1000, 10) {
+                        int totalTime = breakLength*60*1000;
+                        TextView countdownTimer = findViewById(R.id.countdownTimer);
+                        ProgressBar timerProgress = findViewById(R.id.timerProgress);
+
+                        public void onTick(long millisUntilFinished) {
+                            timerProgress.setMax(totalTime);
+                            int hours = ((int) millisUntilFinished/1000) / 3600;
+                            int secondsLeft = ((int) millisUntilFinished/1000) - hours * 3600;
+                            int minutes = secondsLeft / 60;
+                            int seconds = secondsLeft - minutes * 60;
+
+                            String formattedTime = "";
+                            if (hours < 10)
+                                formattedTime += "0";
+                            formattedTime += hours + ":";
+
+                            if (minutes < 10)
+                                formattedTime += "0";
+                            formattedTime += minutes + ":";
+
+                            if (seconds < 10)
+                                formattedTime += "0";
+                            formattedTime += seconds ;
+                            timerProgress.setProgress((int) millisUntilFinished);
+                            countdownTimer.setText(formattedTime);
+                        }
+
+                        public void onFinish() {
+                            timerProgress.setProgress(0);
+                            countdownTimer.setText("00:00:00");
+                            final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                            builder.setTitle("BREAK ENDED");
+                            builder.setMessage("BREAK ENDED");
+                            builder.setCancelable(true);
+                            builder.setNeutralButton("Close", null);
+                            AlertDialog alertDialog = builder.create();
+                            alertDialog.show();
+                        }
+                    }.start();
+                }
+
+            }
+        });
+
+        alert.setNegativeButton("Cancel",new DialogInterface.OnClickListener()
+        {
+            public void onClick(DialogInterface dialog, int id)
+            {
+
+            }
+        });
+
+        alert.show();
+//        mSocket.emit("new message", "break");
     }
 
-    private void sendEnd(View view) {
-        mSocket.emit("new message", "end");
+    public void sendEnd(View view) {
+//        mSocket.emit("new message", "end");
     }
 
     @Override
