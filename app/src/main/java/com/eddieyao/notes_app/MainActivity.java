@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.NotificationCompat;
@@ -24,6 +25,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
+import android.widget.TextView;
 
 import com.github.nkzawa.emitter.Emitter;
 import com.github.nkzawa.socketio.client.IO;
@@ -40,6 +42,7 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
     public static final String CHANNEL_1 = "channel1";
+    public int sessionTime;
 
     private Socket mSocket;
     {
@@ -52,6 +55,7 @@ public class MainActivity extends AppCompatActivity
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        mSocket.on("start_session", onNewSession);
         mSocket.connect();
         createNotificationChannel();
 
@@ -73,6 +77,35 @@ public class MainActivity extends AppCompatActivity
         drawer.addDrawerListener(toggle);
         toggle.syncState();
         navigationView.setNavigationItemSelectedListener(this);
+
+        new CountDownTimer(90*1000, 10) {
+            TextView countdownTimer = findViewById(R.id.countdownTimer);
+            public void onTick(long millisUntilFinished) {
+                int hours = ((int) millisUntilFinished/1000) / 3600;
+                int secondsLeft = ((int) millisUntilFinished/1000) - hours * 3600;
+                int minutes = secondsLeft / 60;
+                int seconds = secondsLeft - minutes * 60;
+
+                String formattedTime = "";
+                if (hours < 10)
+                    formattedTime += "0";
+                formattedTime += hours + ":";
+
+                if (minutes < 10)
+                    formattedTime += "0";
+                formattedTime += minutes + ":";
+
+                if (seconds < 10)
+                    formattedTime += "0";
+                formattedTime += seconds ;
+
+                countdownTimer.setText(formattedTime);
+            }
+
+            public void onFinish() {
+                countdownTimer.setText("Session Ended");
+            }
+        }.start();
     }
 
     private void createNotificationChannel() {
@@ -85,26 +118,30 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private Emitter.Listener onNewMessage = new Emitter.Listener() {
+    private Emitter.Listener onNewSession = new Emitter.Listener() {
         @Override
         public void call(final Object... args) {
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
                     JSONObject data = (JSONObject) args[0];
-                    String username;
-                    String message;
+                    int seconds;
                     try {
-                        username = data.getString("username");
-                        message = data.getString("message");
+                        seconds = data.getInt("duration");
                     } catch (JSONException e) {
                         return;
                     }
+                    sessionTime = seconds;
+                    new CountDownTimer(sessionTime*1000, 1000) {
+                        TextView countdownTimer = findViewById(R.id.countdownTimer);
+                        public void onTick(long millisUntilFinished) {
+                            countdownTimer.setText("seconds remaining: " + millisUntilFinished / 1000);
+                        }
 
-
-
-                    // add the message to view
-                    // addMessage(username, message);
+                        public void onFinish() {
+                            countdownTimer.setText("Session Ended");
+                        }
+                    }.start();
                 }
             });
         }
